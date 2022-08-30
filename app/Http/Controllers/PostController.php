@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Media;
 use App\Models\Post;
 use Illuminate\Http\Request;
 
@@ -11,33 +12,49 @@ class PostController extends Controller
     {
         return response([
 
-            'posts' => Post::orderby('created_at', 'desc')->with('user:id,name')->withcount('comments')->first()
+            'posts' => Post::orderby('created_at', 'desc')->with('user:id,name')->withcount('comments', 'likes')->with('likes', function($like)
+            {
+                return $like->where('user_id', auth()->user()->id)
+                    ->select('id', 'user_id', 'post_id')->get();
+            })
+            ->get()
         ],200);
     }
 
     public function store(Request $request)
     {
-        $data = $request->validate([
+        $request->validate([
             'title' => 'required|string|max:50',
-            'body' => 'required|string|max:255'
+            'body' => 'required|string|max:255',
+            'media' => 'nullable'
         ]);
 
+
+
         $post = Post::create([
-            'body' => $data['body'],
-            'title' => $data['title'],
+            'body' => $request->body,
+            'title' => $request->title,
             'user_id' => auth()->user()->id
         ]);
 
-        return response([
-            'message' => 'Post Created.',
-            'post' => $post
-        ], 200);
+        if ($request->hasFile('media')) {
+             $post->addMultipleMediaFromRequest(['media'])
+                ->each(function ($fileAdder) {
+                    $fileAdder->toMediaCollection('media');
+                });
+        }
+
+            return response([
+                'message' => 'Post Created.',
+                'post' => $post,
+            ]);
+
     }
 
     public function show($id)
     {
         return response([
-            'post' => Post::where('id', $id)->withcount('comments')->first()
+            'post' => Post::where('id', $id)->withcount('comments', 'likes')->first()
         ],200);
     }
 
@@ -59,16 +76,23 @@ class PostController extends Controller
             ],403);
         }
 
-        $data = $request->validate([
+         $request->validate([
             'body' => 'required|string|max:255',
-            'title' => 'required|string|max:50'
-        ]);
+            'title' => 'required|string|max:50',
+            ]);
 
         $post->update([
-            'body' => $data['body'],
-            'title' => $data['title']
-
+            'body' => $request->body,
+            'title' => $request->title,
         ]);
+
+        if ($request->hasFile('media')) {
+            $post->clearMediaCollection();
+            $post->addMultipleMediaFromRequest(['media'])
+               ->each(function ($fileAdder) {
+                   $fileAdder->toMediaCollection('media');
+               });
+       }
 
         return response([
             'message' => 'Post updated.',
@@ -76,9 +100,9 @@ class PostController extends Controller
         ], 200);
     }
 
-    public function destroy(Post $post)
+    public function destroy($id)
     {
-        $post = Post::find($post);
+        $post = Post::find($id);
 
         if(!$post)
         {
@@ -94,8 +118,10 @@ class PostController extends Controller
             ],403);
         }
 
-        $post->comments()->delete();
-        $post->delete();
+
+          $post->comments()->delete();
+          $post->likes()->delete();
+          $post->delete();
 
         return response([
             'message' => 'post deleted'

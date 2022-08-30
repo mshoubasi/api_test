@@ -21,7 +21,7 @@ class CommentController extends Controller
         }
 
         return response([
-            'comments' => $post->comments()->with('user:id,name')->get()
+            'comments' => $post->comments()->with('user:id,name')->withcount('likes')->get()
         ], 200);
     }
 
@@ -38,12 +38,12 @@ class CommentController extends Controller
         }
 
         //validate fields
-        $data = $request->validate([
+        $request->validate([
             'comment' => 'required|string'
         ]);
 
         Comment::create([
-            'comment' => $data['comment'],
+            'comment' => $request->comment,
             'post_id' => $id,
             'user_id' => auth()->user()->id
         ]);
@@ -73,12 +73,12 @@ class CommentController extends Controller
         }
 
         //validate fields
-        $data = $request->validate([
+         $request->validate([
             'comment' => 'required|string'
         ]);
 
         $comment->update([
-            'comment' => $data['comment']
+            'comment' => $request->comment
         ]);
 
         return response([
@@ -105,6 +105,7 @@ class CommentController extends Controller
             ], 403);
         }
 
+        $comment->clikes()->delete();
         $comment->delete();
 
         return response([

@@ -8,10 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\User;
 use App\Models\Comment;
+use App\Models\CLike;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Post extends Model
+
+
+
+class Post extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     protected $guarded = [];
 
@@ -34,4 +40,15 @@ class Post extends Model
     {
         return $this->hasMany(Comment::class);
     }
+
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    public function clikes(): HasMany
+    {
+        return $this->hasMany(CLike::class);
+    }
+
 }
